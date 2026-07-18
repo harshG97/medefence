@@ -14,14 +14,24 @@ from __future__ import annotations
 # --------------------------------------------------------------------------- #
 # Models (two DIFFERENT families so the attacker isn't predicting its own twin)
 # --------------------------------------------------------------------------- #
-MODEL_ATTACKER = "meta-llama/llama-3.3-70b-instruct"          # Alibaba Qwen family
-MODEL_TARGET = "qwen/qwen-2.5-72b-instruct"    # Meta Llama family
+MODEL_ATTACKER = "meta-llama/llama-3.3-70b-instruct"          # Meta Llama family
+MODEL_TARGET = "qwen/qwen-2.5-72b-instruct"    # Alibaba Qwen family
 MODEL_MONITOR = "qwen/qwen-2.5-7b-instruct"   # Defense B veto; reuse target model
 
-# If a primary :free slug is pulled mid-sweep, OpenRouter is asked to try these
-# in order (passed as the `models` array on the request).
-FALLBACKS_ATTACKER = ["meta-llama/llama-3.3-70b-instruct"]
-FALLBACKS_TARGET = ["qwen/qwen-2.5-72b-instruct"]
+# If a primary slug is pulled or a provider route fails mid-sweep, OpenRouter is
+# asked to try these in order (passed as the `models` array on the request).
+# Fallbacks preserve the attacker/target family split: attacker stays non-Qwen,
+# target stays non-Llama, so the attacker never models its own twin.
+FALLBACKS_ATTACKER = [
+    "meta-llama/llama-3.3-70b-instruct",   # primary
+    "meta-llama/llama-3.1-70b-instruct",   # same family, prior gen — safest fallback
+    "mistralai/mistral-large",             # cross-family, still != target's Qwen
+]
+FALLBACKS_TARGET = [
+    "qwen/qwen-2.5-72b-instruct",          # primary
+    "qwen/qwen-2.5-7b-instruct",           # same family (smaller, but reliably hosted)
+    "google/gemma-2-27b-it",               # cross-family, != attacker's Llama
+]
 FALLBACKS_MONITOR = ["qwen/qwen-2.5-7b-instruct"]
 
 # --------------------------------------------------------------------------- #

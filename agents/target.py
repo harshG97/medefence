@@ -89,13 +89,21 @@ class TargetAgent:
             if not calls:
                 return strip_tool_calls(raw) or raw, tool_events
 
-            # Execute each requested tool call, feed results back, loop.
+            # Record the target's tool-calling turn once, then feed results back
+            # as a plain user message. We deliberately avoid the native `tool`
+            # role: this repo uses inline tagged-JSON tool calls, and a
+            # `tool`-role message without a tool_call_id is rejected with 400 by
+            # many OpenRouter providers.
+            messages.append({"role": "assistant", "content": raw})
+            result_lines = []
             for call in calls:
                 result = self.ctx.dispatch(call["name"], call.get("args", {}))
                 tool_events.append({"call": call, "result": result})
-                messages.append({"role": "assistant", "content": raw})
-                messages.append({"role": "tool",
-                                 "content": json.dumps(result)})
+                result_lines.append(f'{call["name"]}: {json.dumps(result)}')
+            messages.append({
+                "role": "user",
+                "content": "Tool result(s):\n" + "\n".join(result_lines),
+            })
 
         # Exhausted tool rounds — force a final natural-language reply.
         final = self.client.complete(

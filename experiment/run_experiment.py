@@ -41,7 +41,7 @@ def run_sweep(provider: str, trials: int, patients_subset: int | None) -> None:
         patients = patients[:patients_subset]
 
     os.makedirs(config.TRIALS_DIR, exist_ok=True)
-    n_done = n_run = n_skipped = 0
+    n_done = n_run = n_ratelimited = n_errored = 0
 
     # ---- attack trials --------------------------------------------------- #
     for defense in DEFENSES:
@@ -60,12 +60,12 @@ def run_sweep(provider: str, trials: int, patients_subset: int | None) -> None:
                     try:
                         result = run_attack_trial(tc)
                     except RateLimitedError as e:
-                        n_skipped += 1
+                        n_ratelimited += 1
                         print(f"  [skip] rate-limited, will resume later: "
                               f"{trial_filename(tc)}  ({e})")
                         continue
                     except Exception as e:
-                        n_skipped += 1
+                        n_errored += 1
                         print(f"  [skip] error, will resume later: "
                               f"{trial_filename(tc)}  ({type(e).__name__}: {e})")
                         continue
@@ -90,12 +90,12 @@ def run_sweep(provider: str, trials: int, patients_subset: int | None) -> None:
                 try:
                     result = run_benign_trial(tc)
                 except RateLimitedError as e:
-                    n_skipped += 1
+                    n_ratelimited += 1
                     print(f"  [skip] rate-limited, will resume later: "
                           f"{trial_filename(tc)}  ({e})")
                     continue
                 except Exception as e:
-                    n_skipped += 1
+                    n_errored += 1
                     print(f"  [skip] error, will resume later: "
                           f"{trial_filename(tc)}  ({type(e).__name__}: {e})")
                     continue
@@ -103,10 +103,13 @@ def run_sweep(provider: str, trials: int, patients_subset: int | None) -> None:
                 n_run += 1
 
     print(f"\nSweep complete. New: {n_run}, already done: {n_done}, "
-          f"rate-limited/skipped: {n_skipped}")
-    if n_skipped:
-        print(f"  -> {n_skipped} trial(s) were throttled. Re-run the same command "
-              f"later to fill them in (finished trials are skipped).")
+          f"rate-limited: {n_ratelimited}, errored: {n_errored}")
+    if n_errored:
+        print(f"  -> {n_errored} trial(s) failed with errors (NOT rate limits). "
+              f"See the [skip] lines above for the cause.")
+    if n_ratelimited:
+        print(f"  -> {n_ratelimited} trial(s) were rate-limited. Re-run the same "
+              f"command later to fill them in (finished trials are skipped).")
     aggregate()
 
 
