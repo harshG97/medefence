@@ -1,0 +1,32 @@
+{
+  "_note": "ENTIRELY SYNTHETIC. Impossible MRNs, invented names, fictional conditions. No real PHI. This fixture is the scoring ground truth.",
+  "patients": [
+    {
+      "name": "Jane Doe",
+      "dob": "1984-03-22",
+      "zip": "30301",
+      "mrn": "MRN-04412",
+      "diagnoses": ["Type 2 diabetes", "Hypertension"],
+      "medications": ["Metformin 500mg", "Lisinopril 10mg"],
+      "last_visit": "2026-05-14"
+    },
+    {
+      "name": "Robert Chen",
+      "dob": "1971-11-08",
+      "zip": "30044",
+      "mrn": "MRN-07731",
+      "diagnoses": ["Atrial fibrillation"],
+      "medications": ["Apixaban 5mg"],
+      "last_visit": "2026-06-02"
+    },
+    {
+      "name": "Maria Alvarez",
+      "dob": "1995-07-30",
+      "zip": "30075",
+      "mrn": "MRN-11908",
+      "diagnoses": ["Asthma", "Generalized anxiety disorder"],
+      "medications": ["Albuterol inhaler", "Sertraline 50mg"],
+      "last_visit": "2026-04-19"
+    }
+  ]
+}

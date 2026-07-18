@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Records-Desk Adversarial Testbed — Match Replay</title>
+<style>
+  :root{
+    --ink:#0d1b1e; --panel:#0f2327; --panel2:#12292e; --line:#1f3d43;
+    --mute:#6f9098; --text:#cfe6ea; --bright:#e8f6f8;
+    --atk:#e0533d;      /* attacker — warning red */
+    --tgt:#3fa7b0;      /* target — clinical teal */
+    --verified:#4bb583; --unverified:#c8a94b; --locked:#8a5cf0;
+    --hit:#e0533d; --hold:#3fa7b0;
+    --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(1200px 500px at 80% -10%, #143035 0%, transparent 60%),
+      var(--ink);
+    color:var(--text);font-family:var(--sans);line-height:1.5;
+    padding:28px clamp(16px,4vw,56px);min-height:100vh}
+  .top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px}
+  h1{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.12em;
+    text-transform:uppercase;margin:0;color:var(--bright)}
+  .sub{font-family:var(--mono);font-size:12px;color:var(--mute);letter-spacing:.04em}
+  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  select,button{font-family:var(--mono);font-size:12px;background:var(--panel2);
+    color:var(--text);border:1px solid var(--line);border-radius:2px;padding:8px 12px;
+    letter-spacing:.03em}
+  select{min-width:340px}
+  button{cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--tgt);color:var(--bright)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--tgt);outline-offset:2px}
+
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:20px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  /* trajectory strip — the signature element */
+  .strip{background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:16px 18px;margin-bottom:20px}
+  .strip h2,.side h2{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--mute);margin:0 0 12px}
+  .track{display:flex;gap:3px;align-items:stretch;min-height:34px}
+  .cell{flex:1;min-width:14px;border-radius:2px;position:relative;
+    background:var(--panel2);border:1px solid var(--line);transition:.2s}
+  .cell .st{position:absolute;inset:0;border-radius:1px;opacity:.9}
+  .st.UNVERIFIED{background:linear-gradient(var(--unverified),transparent 140%);opacity:.30}
+  .st.VERIFIED{background:linear-gradient(var(--verified),transparent 140%);opacity:.45}
+  .st.LOCKED{background:linear-gradient(var(--locked),transparent 140%);opacity:.45}
+  .cell.active{outline:2px solid var(--bright);outline-offset:1px}
+  .cell.giveup{border-color:var(--hit)}
+  .cell.giveup::after{content:"▲";position:absolute;bottom:-18px;left:50%;
+    transform:translateX(-50%);color:var(--hit);font-size:10px}
+  .tnum{position:absolute;top:2px;left:0;right:0;text-align:center;
+    font-family:var(--mono);font-size:9px;color:var(--mute)}
+
+  /* conversation */
+  .convo{background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:8px;min-height:300px}
+  .msg{border-radius:3px;padding:10px 13px;margin:8px;max-width:82%;font-size:13.5px;
+    border:1px solid var(--line);animation:rise .25s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .msg .who{font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;margin-bottom:5px;display:flex;gap:8px;align-items:center}
+  .msg.attacker,.msg.caller{margin-right:auto;background:#241615;border-color:#3a1f1c}
+  .msg.attacker .who,.msg.caller .who{color:var(--atk)}
+  .msg.target{margin-left:auto;background:#0e2a2f;border-color:#14383e}
+  .msg.target .who{color:var(--tgt)}
+  .tools{font-family:var(--mono);font-size:10.5px;color:var(--mute);margin-top:6px;
+    border-top:1px dashed var(--line);padding-top:5px}
+  .veto{color:var(--locked)}
+  .pill{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:10px;
+    border:1px solid currentColor}
+
+  /* side panel */
+  .side{position:sticky;top:20px;align-self:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:16px 18px;margin-bottom:16px}
+  .kv{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;
+    padding:5px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border:0}
+  .kv .k{color:var(--mute)}
+  .verdict{font-family:var(--mono);text-align:center;padding:14px;border-radius:3px;
+    font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  .verdict.hit{background:#2a1310;color:var(--hit);border:1px solid var(--hit)}
+  .verdict.hold{background:#0e2a2f;color:var(--hold);border:1px solid var(--hold)}
+  .legend{font-family:var(--mono);font-size:10.5px;color:var(--mute);display:flex;
+    gap:14px;flex-wrap:wrap;margin-top:10px}
+  .legend span{display:flex;gap:5px;align-items:center}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .hint{font-family:var(--mono);font-size:11px;color:var(--mute);margin-top:6px}
+  input[type=file]{display:none}
+  label.file{cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>Records-Desk Adversarial Testbed</h1>
+    <span class="sub">turn-by-turn match replay · attacker ⟶ target</span>
+  </div>
+
+  <div class="controls">
+    <label class="file">
+      <button type="button" onclick="document.getElementById('fi').click()">Load trials…</button>
+      <input id="fi" type="file" multiple accept=".jsonl" onchange="loadFiles(event)">
+    </label>
+    <select id="pick" onchange="selectTrial(this.value)" aria-label="Choose a trial"></select>
+    <button id="prev" onclick="step(-1)">◂ Prev turn</button>
+    <button id="play" onclick="togglePlay()">▶ Play</button>
+    <button id="next" onclick="step(1)">Next turn ▸</button>
+    <span class="hint" id="hint">Load one or more <code>results/trials/*.jsonl</code> files.</span>
+  </div>
+
+  <div class="strip">
+    <h2>Trajectory — verification state per turn</h2>
+    <div class="track" id="track"></div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--unverified);opacity:.5"></i>unverified</span>
+      <span><i class="dot" style="background:var(--verified)"></i>verified</span>
+      <span><i class="dot" style="background:var(--locked)"></i>locked</span>
+      <span><i class="dot" style="background:var(--hit)"></i>▲ give-in turn</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="convo" id="convo"></div>
+    <div class="side">
+      <div class="card">
+        <h2>Trial</h2>
+        <div id="meta"></div>
+      </div>
+      <div class="card">
+        <h2>Verdict</h2>
+        <div id="verdict" class="verdict hold">—</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+let TRIALS = {};      // filename -> parsed trial
+let cur = null;       // current trial object
+let idx = -1;         // current visible turn index
+let timer = null;
+
+function parseJSONL(text){
+  const rec = {meta:null, score:null, turns:[], ledger:[]};
+  text.split(/\r?\n/).forEach(line=>{
+    if(!line.trim()) return;
+    let o; try{ o = JSON.parse(line); }catch(e){ return; }
+    if(o.record==="meta") rec.meta=o;
+    else if(o.record==="score") rec.score=o;
+    else if(o.record==="turn") rec.turns.push(o);
+    else if(o.record==="ledger") rec.ledger=o.calls||[];
+  });
+  return rec;
+}
+
+function loadFiles(ev){
+  const files = [...ev.target.files];
+  let pending = files.length;
+  files.forEach(f=>{
+    const r = new FileReader();
+    r.onload = () => {
+      TRIALS[f.name] = parseJSONL(r.result);
+      if(--pending===0) refreshPicker();
+    };
+    r.readAsText(f);
+  });
+}
+
+function refreshPicker(){
+  const sel = document.getElementById('pick');
+  const names = Object.keys(TRIALS).sort();
+  sel.innerHTML = names.map(n=>`<option value="${n}">${label(n)}</option>`).join('');
+  document.getElementById('hint').textContent = `${names.length} trial(s) loaded.`;
+  if(names.length) selectTrial(names[0]);
+}
+
+function label(fn){
+  const t = TRIALS[fn];
+  if(!t||!t.meta) return fn;
+  const m=t.meta, s=t.score||{};
+  const tag = m.kind==="attack" ? (s.attack_success?"HIT":"hold") :
+              (s.over_refusal?"OVER-REFUSE":(s.benign_success?"served":"—"));
+  return `[${tag}] ${m.kind} · def=${m.defense} · ${m.strategy} · ${m.patient}`;
+}
+
+function selectTrial(name){
+  cur = TRIALS[name];
+  document.getElementById('pick').value = name;
+  buildTrack();
+  renderMeta();
+  idx = -1;
+  document.getElementById('convo').innerHTML='';
+  stop();
+  step(1);
+}
+
+function giveInTurn(){
+  if(!cur||!cur.score) return -1;
+  const st = cur.score.success_turn;
+  if(!st) return -1;
+  // success_turn is 1-based attacker/target *pair*; the target turn index is 2*st-1
+  return 2*st - 1;
+}
+
+function buildTrack(){
+  const track = document.getElementById('track');
+  const g = giveInTurn();
+  track.innerHTML = cur.turns.map((t,i)=>{
+    const state = (t.state&&t.state.state)||"UNVERIFIED";
+    const gv = (i===g) ? "giveup":"";
+    return `<div class="cell ${gv}" data-i="${i}">
+              <span class="st ${state}"></span>
+              <span class="tnum">${i+1}</span></div>`;
+  }).join('');
+}
+
+function renderMeta(){
+  const m=cur.meta||{}, s=cur.score||{};
+  const rows = [
+    ["kind", m.kind],["defense", m.defense],["strategy", m.strategy],
+    ["patient", m.patient],["provider", m.provider],
+    ["turns used", m.turns_used],
+  ];
+  if(m.kind==="attack"){
+    rows.push(["phi leaked", s.phi_leaked]);
+    rows.push(["unauth send", s.unauthorized_send]);
+    if(s.leaked_fact) rows.push(["leaked fact", s.leaked_fact]);
+    rows.push(["final state", s.final_state]);
+  } else {
+    rows.push(["should serve", s.should_succeed]);
+    rows.push(["disclosed", s.disclosed]);
+    rows.push(["over-refusal", s.over_refusal]);
+    rows.push(["final state", s.final_state]);
+  }
+  document.getElementById('meta').innerHTML = rows.map(([k,v])=>
+    `<div class="kv"><span class="k">${k}</span><span>${fmt(v)}</span></div>`).join('');
+
+  const vd = document.getElementById('verdict');
+  if(m.kind==="attack"){
+    const hit = s.attack_success;
+    vd.className = "verdict "+(hit?"hit":"hold");
+    vd.textContent = hit ? `attack succeeded · turn ${s.success_turn}` : "target held firm";
+  } else {
+    const bad = s.over_refusal;
+    vd.className = "verdict "+(bad?"hit":"hold");
+    vd.textContent = bad ? "over-refused a legit caller"
+                         : (s.benign_success?"served correctly":"correctly refused");
+  }
+}
+function fmt(v){ return (v===true)?"yes":(v===false)?"no":(v==null?"—":v); }
+
+function step(dir){
+  if(!cur) return;
+  const n = cur.turns.length;
+  idx = Math.max(-1, Math.min(n-1, idx+dir));
+  render();
+}
+
+function render(){
+  const convo = document.getElementById('convo');
+  convo.innerHTML='';
+  cur.turns.slice(0, idx+1).forEach((t)=>convo.appendChild(bubble(t)));
+  convo.scrollTop = convo.scrollHeight;
+  [...document.querySelectorAll('.cell')].forEach((c,i)=>
+    c.classList.toggle('active', i===idx));
+  document.getElementById('prev').disabled = idx<=0;
+  document.getElementById('next').disabled = idx>=cur.turns.length-1;
+}
+
+function bubble(t){
+  const d = document.createElement('div');
+  const role = t.role==="target" ? "target" : (t.role==="caller"?"caller":"attacker");
+  d.className = `msg ${role}`;
+  const state = (t.state&&t.state.state)||"";
+  let tools = "";
+  if(t.tools && t.tools.length){
+    tools = `<div class="tools">⚙ ${t.tools.map(c=>c.name).join(', ')}</div>`;
+  }
+  if(t.monitor_vetoed){
+    tools += `<div class="tools veto">⨯ monitor vetoed this reply</div>`;
+  }
+  d.innerHTML = `<div class="who">${role}
+      <span class="pill">${state}</span></div>
+      <div>${esc(t.content)}</div>${tools}`;
+  return d;
+}
+function esc(s){ return (s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function togglePlay(){ timer ? stop() : play(); }
+function play(){
+  document.getElementById('play').textContent="❚❚ Pause";
+  if(idx>=cur.turns.length-1) idx=-1;
+  timer = setInterval(()=>{
+    if(idx>=cur.turns.length-1){ stop(); return; }
+    step(1);
+  }, 900);
+}
+function stop(){
+  clearInterval(timer); timer=null;
+  const p=document.getElementById('play'); if(p) p.textContent="▶ Play";
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==="ArrowRight") step(1);
+  if(e.key==="ArrowLeft") step(-1);
+  if(e.key===" "){ e.preventDefault(); togglePlay(); }
+});
+</script>
+</body>
+</html>

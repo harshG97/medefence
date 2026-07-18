@@ -1,0 +1,2 @@
+# Only needed for the real (OpenRouter) backend. Mock mode has zero dependencies.
+requests>=2.31.0
