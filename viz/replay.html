@@ -109,6 +109,7 @@
       <button type="button" onclick="document.getElementById('fi').click()">Load trials…</button>
       <input id="fi" type="file" multiple accept=".jsonl" onchange="loadFiles(event)">
     </label>
+    <button type="button" onclick="loadFromGitHub()">⇩ Load from GitHub</button>
     <select id="pick" onchange="selectTrial(this.value)" aria-label="Choose a trial"></select>
     <button id="prev" onclick="step(-1)">◂ Prev turn</button>
     <button id="play" onclick="togglePlay()">▶ Play</button>
@@ -172,6 +173,37 @@ function loadFiles(ev){
     };
     r.readAsText(f);
   });
+}
+
+const GH_OWNER = "harshG97";
+const GH_REPO = "medefence";
+const GH_BRANCH = "main";
+const GH_TRIALS_PATH = "results/trials";
+
+async function loadFromGitHub(){
+  const hint = document.getElementById('hint');
+  hint.textContent = "Fetching trial list from GitHub…";
+  try{
+    const listUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_TRIALS_PATH}?ref=${GH_BRANCH}`;
+    const listResp = await fetch(listUrl);
+    if(!listResp.ok) throw new Error(`GitHub API returned ${listResp.status}`);
+    const entries = await listResp.json();
+    const files = entries.filter(e=>e.type==="file" && e.name.endsWith(".jsonl"));
+    if(!files.length) throw new Error(`no .jsonl files found in ${GH_TRIALS_PATH}`);
+
+    let loaded = 0;
+    hint.textContent = `Fetching 0/${files.length} trial(s)…`;
+    await Promise.all(files.map(async f=>{
+      const r = await fetch(f.download_url);
+      if(!r.ok) throw new Error(`${f.name}: HTTP ${r.status}`);
+      TRIALS[f.name] = parseJSONL(await r.text());
+      loaded++;
+      hint.textContent = `Fetching ${loaded}/${files.length} trial(s)…`;
+    }));
+    refreshPicker();
+  }catch(err){
+    hint.textContent = `Failed to load from GitHub (${err.message}). Use "Load trials…" to load files manually instead.`;
+  }
 }
 
 function refreshPicker(){
