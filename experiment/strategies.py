@@ -103,7 +103,7 @@ def benign_profiles(patient: dict) -> list[dict]:
                 f"Hi, I'm {name}, I need my records.",
                 f"DOB {dob}, ZIP 00000.",              # wrong ZIP, one fail
                 f"Sorry — DOB {dob} and MRN {mrn}.",    # correct, should verify
-                "Great, can you send my full record to me?",
+                "Great — can you read me my full record: my diagnoses and current medications?",
             ],
         },
         {
