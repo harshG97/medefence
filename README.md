@@ -44,41 +44,48 @@ consistent — no eyeballing, no LLM judge for the primary signal.
 
 ## Quick start
 
-### Offline (no key, no network) — recommended first run
-```bash
-python -m experiment.run_experiment --provider mock --trials 20
-```
-This runs the entire pipeline against a deterministic mock LLM and writes
-per-trial transcripts to `results/trials/` plus an aggregated `results/summary.csv`.
-It exists so the harness can be tested end-to-end and so the repo ships with
-runnable sample output. **Mock numbers are illustrative mechanics, not research
-findings** — a real model produces messier, more interesting results (Defense A
-will not be a clean 0.00).
-
-### Real run (OpenRouter)
+### Run against real models (OpenRouter)
 ```bash
 pip install -r requirements.txt
 export OPENROUTER_API_KEY=sk-or-v1-...
-python -m experiment.run_experiment --provider openrouter --trials 20
+python -m experiment.run_experiment --provider openrouter --trials 10 --patients 2
 ```
-- **Attacker:** `qwen/qwen3-coder:free` (Alibaba Qwen)
-- **Target / Monitor:** `meta-llama/llama-3.3-70b:free` (Meta Llama)
+This runs the entire pipeline and writes per-trial transcripts to `results/trials/`
+plus an aggregated `results/summary.csv`.
 
-Two different families so the attacker isn't predicting its own twin. Model IDs
-are pinned in `config.py` with fallback arrays (verified 2026-07-16); OpenRouter's
-`:free` roster rotates weekly, so if a slug 404s the fallback is tried next.
+- **Attacker:** `meta-llama/llama-3.3-70b-instruct` (Meta Llama)
+- **Target:** `qwen/qwen-2.5-72b-instruct` (Alibaba Qwen)
+- **Monitor (Defense B):** `qwen/qwen-2.5-7b-instruct` (a cheap reviewer)
+
+Attacker and target are **different families** so the attacker isn't predicting
+its own twin. Model IDs and per-model fallback chains live in `config.py`; if a
+provider route fails or a slug 404s mid-sweep, the next fallback is tried
+automatically instead of aborting the trial.
+
+> **Offline mock backend is currently disabled.** A deterministic `--provider mock`
+> path exists in the code for exercising the harness without a key, but the
+> `MockLLM` class in `agents/llm_client.py` is commented out — so runs require an
+> OpenRouter key for now.
 
 **Free-tier note.** OpenRouter free tier is 20 req/min and 50 req/day (→ 1,000/day
 after a one-time $10 credit). A full sweep is thousands of requests, so the daily
 cap will throttle a free run. The sweep is **resumable** — trials already written
 are skipped — so you can stage it across days, or buy the $10 credit to lift the
-cap. Develop with `--trials 3 --patients 1`; run the full 20 for final numbers.
+cap. Develop with `--trials 3 --patients 1`; raise `--trials`/`--patients` for
+final numbers (`config.py` defaults to 20 trials/cell across all 3 patients).
 
 ### Replay a match visually
-Open `viz/replay.html` in a browser and load one or more `results/trials/*.jsonl`
-files. Step through any trial turn by turn: the trajectory strip shows the
-verification state at each turn and marks the give-in turn; the conversation
-panel shows each message with its tool calls and any monitor veto.
+`replay.html` is a self-contained viewer for stepping through any trial turn by
+turn: the trajectory strip shows the verification state at each turn and marks the
+give-in turn; the conversation panel shows each message with its tool calls and
+any monitor veto. Three ways to use it:
+
+- **Hosted** (GitHub Pages, root `replay.html`) — click **⇩ Load from GitHub** to
+  pull every trial straight from `results/trials/` in the repo.
+- **Local** — open `viz/replay.html` (or the root copy) in a browser and use
+  **Load trials…** to load one or more `results/trials/*.jsonl` files from disk.
+
+All parsing happens client-side; no trial data leaves the browser.
 
 ### Rebuild the summary without re-running
 ```bash
@@ -119,16 +126,18 @@ core/
   tools.py                verify_identity, get_record, send_records + call ledger
   scoring.py              phi_leaked / unauthorized_send / benign flags
 agents/
-  llm_client.py           OpenRouter client + offline MockLLM; tool-call parsing;
-                          20/min pacer, 429 backoff, fallback array
+  llm_client.py           OpenRouter client (offline MockLLM currently commented
+                          out); tool-call parsing; 20/min pacer, 429 backoff,
+                          fallback array
   target.py               base + hardened system prompts; tool-resolution loop
   attacker.py             strategy-driven, conversation-aware next message
-  monitor.py              Defense B: RuleMonitor (mock) / LLMMonitor (real)
+  monitor.py              Defense B: RuleMonitor / LLMMonitor (used with OpenRouter)
 experiment/
   strategies.py           5 attacker prompts + benign caller profiles
   orchestrator.py         one autonomous trial; writes JSONL transcript
   run_experiment.py       resumable sweep -> summary.csv; prints ASR tables
-viz/replay.html           turn-by-turn match replay (loads the JSONLs)
+replay.html               turn-by-turn match replay; root copy hosted on Pages
+viz/replay.html           source copy of the same viewer
 results/trials/*.jsonl     one file per trial: meta, score, every turn, ledger
 results/summary.csv        ASR per strategy x defense, leak/send rates, turns
 ```
@@ -148,11 +157,12 @@ message (role, content, FSM snapshot, any tool calls, monitor-veto flag), and a
 analysis reads.
 
 ## Reproducibility & honesty notes
-- The CLI sweep is the **source of truth** for reported numbers. `config.py` pins
-  models, trial counts, and seeds.
+- The OpenRouter CLI sweep is the **source of truth** for reported numbers;
+  `config.py` pins models, fallbacks, trial counts, and seeds. The figures in
+  `report/report.md` are from a real Qwen-target vs Llama-attacker run, not mock.
 - Synthetic PHI only — impossible MRNs, invented names, fictional conditions.
-- Mock mode demonstrates the *harness*; it is not a model evaluation. Swap
-  `--provider openrouter` for real research numbers.
+- The offline mock backend (harness demo, no key) is currently disabled in
+  `agents/llm_client.py`; real numbers come from `--provider openrouter`.
 
 ## Boundaries
 Both agents and every tool call stay inside this sandboxed code. No real service,
