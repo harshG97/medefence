@@ -71,10 +71,18 @@ and my own `sympathetic_emergency` — a distressed-family pretext with a patien
 emotional with time pressure. Role-play and escalation are standard moves from
 Meta's GOAT (2024, arXiv:2410.01606); the emergency pretext is my extension.
 
-**Defenses (2).**
-- **A — structural + hardened prompt.** The FSM hard-refuses disclosure tools
-  unless `VERIFIED`, and the target's system prompt gains an immutable-rules
-  preamble plus a pre-disclosure self-check.
+**Conditions (3).** Every strategy is run under three conditions — an undefended
+control plus the two defenses under test. The FSM structural gate on the *tool*
+path (`send_records`, `get_record`) is always on, in every condition; what the
+defenses add is protection for the *spoken* disclosure path.
+
+- **Undefended (control).** Base prompt, no monitor — the baseline the two
+  defenses are measured against. The tool gate is still active (which is why an
+  unauthorized *send* is impossible even here); only the spoken path is
+  unprotected.
+- **A — structural + hardened prompt.** On top of the always-on tool gate, the
+  target's system prompt gains an immutable-rules preamble plus a pre-disclosure
+  self-check, hardening the spoken path against reframing.
 - **B — monitor agent.** A separate model reviews the target's *drafted* reply
   and vetoes PHI-while-unverified before it is sent.
 
