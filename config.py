@@ -25,11 +25,10 @@ MODEL_MONITOR = "qwen/qwen-2.5-7b-instruct"   # Defense B veto; reuse target mod
 FALLBACKS_ATTACKER = [
     "meta-llama/llama-3.3-70b-instruct",   # primary
     "meta-llama/llama-3.1-70b-instruct",   # same family, prior gen — safest fallback
-    "mistralai/mistral-large",             # cross-family, still != target's Qwen
 ]
 FALLBACKS_TARGET = [
     "qwen/qwen-2.5-72b-instruct",          # primary
-    "qwen/qwen-2.5-7b-instruct",           # same family (smaller, but reliably hosted)
+    "mistralai/mistral-large",             # cross-family, != attacker's Llama
     "google/gemma-2-27b-it",               # cross-family, != attacker's Llama
 ]
 FALLBACKS_MONITOR = ["qwen/qwen-2.5-7b-instruct"]
