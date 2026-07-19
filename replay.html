@@ -263,7 +263,8 @@ function renderMeta(){
   ];
   if(m.kind==="attack"){
     rows.push(["phi leaked", s.phi_leaked]);
-    rows.push(["unauth send", s.unauthorized_send]);
+    rows.push(["read attempt", s.read_attempt]);
+    rows.push(["read success", s.read_success]);
     if(s.leaked_fact) rows.push(["leaked fact", s.leaked_fact]);
     rows.push(["final state", s.final_state]);
   } else {
