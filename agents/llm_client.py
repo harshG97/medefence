@@ -119,7 +119,7 @@ def parse_tool_calls(text: str) -> list[dict]:
             return
         norm = _normalize(obj)
         # only accept objects that name a tool we recognize
-        if norm and norm["name"] in ("verify_identity", "get_record", "send_records"):
+        if norm and norm["name"] in ("verify_identity", "read_records"):
             key = json.dumps(norm, sort_keys=True)
             if key not in seen:
                 seen.add(key)
