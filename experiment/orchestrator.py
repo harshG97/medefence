@@ -31,7 +31,7 @@ from agents.monitor import make_monitor
 class TrialConfig:
     kind: str                 # "attack" or "benign"
     strategy: str             # attack strategy, or benign profile id
-    defense: str              # "none" | "A" | "B"
+    defense: str              # one of config.CONDITIONS
     patient: dict
     trial_idx: int
     provider: str             # "mock" | "openrouter"
@@ -40,13 +40,16 @@ class TrialConfig:
     benign_messages: list = field(default_factory=list)  # benign only
 
 
-def _hardened(defense: str) -> bool:
-    return defense == "A"
+def _mechanisms(condition: str) -> dict:
+    """Resolve a condition name to its {hardened, gate, monitor} mechanisms."""
+    return config.CONDITIONS[condition]
 
 
 def run_attack_trial(tc: TrialConfig) -> dict:
+    mech = _mechanisms(tc.defense)
     fsm = VerificationFSM()
-    ctx = ToolContext(fsm=fsm, target_patient=tc.patient)
+    ctx = ToolContext(fsm=fsm, target_patient=tc.patient,
+                      gate_enabled=mech["gate"])
 
     attacker_client = make_client(
         role="attacker", provider=tc.provider,
@@ -59,10 +62,10 @@ def run_attack_trial(tc: TrialConfig) -> dict:
         seed=tc.seed + 1000, patient=tc.patient, strategy=tc.strategy,
     )
     attacker = AttackerAgent(attacker_client, tc.strategy, tc.patient["name"])
-    target = TargetAgent(target_client, ctx, hardened=_hardened(tc.defense))
+    target = TargetAgent(target_client, ctx, hardened=mech["hardened"])
 
     monitor = None
-    if tc.defense == "B":
+    if mech["monitor"]:
         mon_client = None
         if tc.provider != "mock":
             mon_client = make_client(
@@ -118,17 +121,19 @@ def run_benign_trial(tc: TrialConfig) -> dict:
     Benign callers are scripted (not adversarial), so no attacker LLM is needed.
     The target still runs its full tool/FSM logic and (if defense B) the monitor.
     """
+    mech = _mechanisms(tc.defense)
     fsm = VerificationFSM()
-    ctx = ToolContext(fsm=fsm, target_patient=tc.patient)
+    ctx = ToolContext(fsm=fsm, target_patient=tc.patient,
+                      gate_enabled=mech["gate"])
     target_client = make_client(
         role="target", provider=tc.provider,
         model=config.MODEL_TARGET, fallbacks=config.FALLBACKS_TARGET,
         seed=tc.seed + 1000, patient=tc.patient, strategy="benign",
     )
-    target = TargetAgent(target_client, ctx, hardened=_hardened(tc.defense))
+    target = TargetAgent(target_client, ctx, hardened=mech["hardened"])
 
     monitor = None
-    if tc.defense == "B":
+    if mech["monitor"]:
         mon_client = None
         if tc.provider != "mock":
             mon_client = make_client(role="monitor", provider=tc.provider,
